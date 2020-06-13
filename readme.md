@@ -12,12 +12,12 @@ the server, run these commands with a console in the folder you wish to run Mine
 
 ## To run
 the server type:
-`ts-node src -p3000` for survival
-`ts-node src -p3001` for creative
-`ts-node src -p3002` for survival copy
+-`ts-node src -p3000` for survival
+-`ts-node src -p3001` for creative
+-`ts-node src -p3002` for survival copy
 
 Example startup for running server with arguments
-`ts-node src -p3000 -- -Xmx2G -Xms2G -XX:+UseG1GC -Xss1M`
+-`ts-node src -p3000 -- -Xmx2G -Xms2G -XX:+UseG1GC -Xss1M`
 
 Client code is [hosted on this github](https://x-com.github.io/Backup-System/),
 you only need to use it to login to a server of your choice with a specific IP and port.
