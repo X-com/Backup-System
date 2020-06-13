@@ -16,6 +16,9 @@ the server type:
 `ts-node src -p3001` for creative
 `ts-node src -p3002` for survival copy
 
+Example startup for running server with arguments
+`ts-node src -p3000 -- -Xmx2G -Xms2G -XX:+UseG1GC -Xss1M`
+
 Client code is [hosted on this github](https://x-com.github.io/Backup-System/),
 you only need to use it to login to a server of your choice with a specific IP and port.
 Note that the port isn't the same as the port you play Minecraft on.
