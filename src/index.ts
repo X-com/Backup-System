@@ -139,6 +139,11 @@ const downloadCarpet = async (force: boolean = false) => {
 const getMergedCarpet = async (force: boolean = false) => {
   const mergedFile = path.resolve(path.join(mcFolder, "server.jar"));
   const updateFolder = path.join(mcFolder, "update");
+  try{
+    await fs.access(updateFolder);
+  }catch(e){
+    await fs.mkdir(updateFolder);
+  }
   const files = await fs.readdir(updateFolder)
   const carpetFile = files.find(file => file.match(/^Carpet\.[^.]+\.jar$/));
   if(carpetFile){
@@ -206,7 +211,7 @@ const startServer = async (forceUpdate: boolean = false) => {
     // get jar file path
     const serverFullPath = await getMergedCarpet(forceUpdate);
     // run without gui
-    const command = `java -jar ${serverFullPath} nogui`;
+    const command = `java ${args._.join(" ")} -jar "${serverFullPath}" nogui`;
     // start child process with MC with CWD set to minecraft folder
     const child = exec(command, { cwd: mcFolder });
     const { stdout, stderr, stdin } = child;
