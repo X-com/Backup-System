@@ -33,8 +33,8 @@ export const App: FC = () => {
   const connection = useRef<WebSocket>();
   const [server, setServer] = useState("3000");
   const [ip, setIp] = useState(localStorage.getItem('ip') || "127.0.0.1");
-  const [login, setLogin] = useState("login");
-  const [password, setPassword] = useState("password");
+  const [login, setLogin] = useState("");
+  const [password, setPassword] = useState("");
   const [authorized, setAuthorized] = useState(false);
   const [backups, setBackups] = useState<string[]>([]);
   const [error, setError] = useState("");
