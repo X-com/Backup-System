@@ -1,0 +1,78 @@
+.app {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.app__form {
+    margin-top: 16px;
+    padding-top: 16px;
+}
+
+.app__input.app__input {
+    display: block;
+    margin-left: 16px;
+    width: 180px;
+}
+
+.app__button {
+    display: block;
+    padding: 16px 0 16px 16px;
+    display: flex;
+}
+
+.app__button2.app__button2 {
+    display: block;
+    margin: 0 16px 0 0;
+}
+
+.app__alert {
+    margin-top: 16px;
+}
+
+.app__server-state {
+    flex: 0 0 auto;
+    margin-left: auto;
+    margin-right: 16px;
+}
+
+.dialog {
+    position: relative;
+}
+
+.dialog__row {
+    display: flex;
+}
+
+.dialog__input {
+    flex: 1 1 auto;
+    margin-left: 16px;
+}
+
+.dialog__button.dialog__button {
+    margin: 16px;
+}
+
+.dialog__confirm {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: white;
+    display: flex;
+    flex-direction: column;
+}
+
+.dialog__text {
+    margin: 16px;
+    flex: 0 0 auto;
+}
+
+.dialog__buttons {
+    margin: auto 16px 16px 16px;
+    flex: 0 0 auto;
+}
+
+.dialog__no.dialog__no {
+    margin-left: 16px;
+}
