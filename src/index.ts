@@ -208,6 +208,8 @@ const startServer = async (forceUpdate: boolean = false) => {
     setState({ type: "starting" });
     // sign eula
     await signEula();
+    // wait 10 sec before starting server
+    await new Promise((resolve) => setTimeout(resolve, 10000));
     // get jar file path
     const serverFullPath = await getMergedCarpet(forceUpdate);
     // run without gui
