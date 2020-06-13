@@ -9,9 +9,14 @@ import WebSocket from "ws";
 import fse from "fs-extra-promise";
 import fspx from "fs";
 import minimist from 'minimist';
+import Discord, { TextChannel } from "discord.js";
 
 const args = minimist(process.argv.slice(2));
 const fsp = fspx.promises;
+let config:any;
+try{
+  config = JSON.parse(fs.readFileSync("./config/discord.json", "utf-8"));
+}catch(e){}
 
 // server just got started, waiting mc server to start
 interface InitialState {
@@ -226,10 +231,61 @@ const startServer = async (forceUpdate: boolean = false) => {
     // redirect mc's output to server's output, so that it's visible not only in logs
     stdout.pipe(process.stdout);
     stderr.pipe(process.stderr);
+    // discord bridge for sending chat into discord
+    const client = new Discord.Client();
+
+    client.on("ready", () => {
+      console.log("Connected discord bot");
+      const guild = client.guilds.resolve(config.serverId);
+      const channel = guild?.channels.resolve(config.channelId);
+      if(!(channel instanceof TextChannel)) return;
+
+      client.on("message", message => {
+          if(channel.id !== message.channel.id) return;
+          if(message.author.id === client.user?.id) return;
+
+          const msg = [
+            {
+              text: `<${guild?.member(message.author)?.displayName}> `,
+              color: "blue",
+              hoverEvent: {
+                action: "show_text",
+                value: message.author.username + "#" + message.author.discriminator
+              },
+              clickEvent: {
+                action: "suggest_command",
+                value: "<@" + message.author.id + "> "
+              }
+            },
+            {
+              text: message.content,
+              color: "white"
+            }
+          ];
+          stdin.write(`/tellraw @a ${JSON.stringify(msg)}\n`);
+      });
+
+      stdout.on("data", data => {
+        // #bridge
+        const match = data.match(
+          /\[\d\d:\d\d:\d\d\] \[Server thread\/INFO\]: <([^>]+)> ([^\n\r]+)[\r\n]/
+        );
+        if (match) {
+          const [, name, message] = match;
+          channel?.send(name + ": " + message);
+        }
+      });
+    });
+
+    if(config){
+      client.login(config.botToken);
+    }
+    // end of discord bridge
     // this promise will resolve when server stops
     const onClose = new Promise<void>((resolve, reject) => {
       // subscribe to mc server process stopping
       child.once("close", () => {
+        client.destroy();
         if (state.type === "stopping") {
           // server was explicitly stopped
           setState({ type: "initial" });
