@@ -18,6 +18,14 @@ try{
   config = JSON.parse(fs.readFileSync("./config/discord.json", "utf-8"));
 }catch(e){}
 
+const mcFolder = "./mc";
+
+try{
+  fs.accessSync(mcFolder);
+}catch(e){
+  fs.mkdirSync(mcFolder);
+}
+
 // server just got started, waiting mc server to start
 interface InitialState {
   type: "initial";
@@ -72,8 +80,6 @@ const setState = (newState: State) => {
   // broadcast new server state to all the clients
   broadcast({ type: "state", value: state.type });
 };
-
-const mcFolder = "./mc";
 
 const getCarpetLink = async () => {
   // get json from github api
@@ -430,10 +436,11 @@ const restore = async (backupName: string, regions: Region[]) => {
     // check if backup folder exists
     await fs.access(backupDir);
     if (regions.length === 0) {
+      await new Promise((resolve) => setTimeout(resolve, 10000));
       // remove current world folder
-      await fsp.rmdir(worldPath, { recursive: true });
+      await fsp.rmdir(worldPath, { recursive: true, maxRetries:3});
       // copy world folder, recursively
-      await fse.copyAsync(backupDir, worldPath);
+      await fse.copyAsync(backupDir, worldPath, {errorOnExist:true});
     } else {
       // partial restore: only certain region files
       const fileNames = regions.map(({ dimension, x, z }) => {
