@@ -10,6 +10,7 @@ import fse from "fs-extra-promise";
 import fspx from "fs";
 import minimist from 'minimist';
 import Discord, { TextChannel } from "discord.js";
+import rimraf from 'rimraf';
 
 const args = minimist(process.argv.slice(2));
 const fsp = fspx.promises;
@@ -438,7 +439,7 @@ const restore = async (backupName: string, regions: Region[]) => {
     if (regions.length === 0) {
       await new Promise((resolve) => setTimeout(resolve, 10000));
       // remove current world folder
-      await fsp.rmdir(worldPath, { recursive: true, maxRetries:3});
+      await new Promise((resolve, reject) => rimraf(worldPath, (err) => err ? reject(err) : resolve()));
       // copy world folder, recursively
       await fse.copyAsync(backupDir, worldPath, {errorOnExist:true});
     } else {
