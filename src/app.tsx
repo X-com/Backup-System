@@ -121,6 +121,16 @@ export const App: FC = () => {
     [login, password, server, ip], 
   );
 
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [action, setAction] = useState(()=>()=>{});
+  const handleConfirm = useCallback(()=>{
+    action();
+    setIsConfirmOpen(false);
+  },[action]);
+  const handleClose = useCallback(()=>{
+    setIsConfirmOpen(false);
+  },[]);
+
   const checkIsValid = useCallback((backupName: string) => {
     const isValid = backupName.match(/^[a-zA-Z0-9 '-]+$/);
     setBackupNameError(!isValid);
@@ -139,15 +149,18 @@ export const App: FC = () => {
   const handleUpdate = useCallback<MouseEventHandler<HTMLButtonElement>>(
     event => {
       event.preventDefault();
-      const conn = connection.current;
-      if (!conn) {
-        return;
-      }
-      conn.send(
-        JSON.stringify({
-          type: "update"
-        })
-      );
+      setIsConfirmOpen(true);
+      setAction(()=>()=>{
+        const conn = connection.current;
+        if (!conn) {
+          return;
+        }
+        conn.send(
+          JSON.stringify({
+            type: "update"
+          })
+        );
+      })
     },
     []
   );
@@ -155,15 +168,18 @@ export const App: FC = () => {
   const handleRestart = useCallback<MouseEventHandler<HTMLButtonElement>>(
     event => {
       event.preventDefault();
-      const conn = connection.current;
-      if (!conn) {
-        return;
-      }
-      conn.send(
-        JSON.stringify({
-          type: "restart"
-        })
-      );
+      setIsConfirmOpen(true);
+      setAction(()=>()=>{
+        const conn = connection.current;
+        if (!conn) {
+          return;
+        }
+        conn.send(
+          JSON.stringify({
+            type: "restart"
+          })
+        );
+      })
     },
     []
   );
@@ -171,15 +187,18 @@ export const App: FC = () => {
   const handleStop = useCallback<MouseEventHandler<HTMLButtonElement>>(
     event => {
       event.preventDefault();
-      const conn = connection.current;
-      if (!conn) {
-        return;
-      }
-      conn.send(
-        JSON.stringify({
-          type: "stop"
-        })
-      );
+      setIsConfirmOpen(true);
+      setAction(()=>()=>{
+        const conn = connection.current;
+        if (!conn) {
+          return;
+        }
+        conn.send(
+          JSON.stringify({
+            type: "stop"
+          })
+        );
+      });
     },
     []
   );
@@ -194,16 +213,19 @@ export const App: FC = () => {
         }
         return;
       }
-      const conn = connection.current;
-      if (!conn) {
-        return;
-      }
-      conn.send(
-        JSON.stringify({
-          type: "save",
-          name: backupName
-        })
-      );
+      setIsConfirmOpen(true);
+      setAction(()=>()=>{
+        const conn = connection.current;
+        if (!conn) {
+          return;
+        }
+        conn.send(
+          JSON.stringify({
+            type: "save",
+            name: backupName
+          })
+        );
+      })
     },
     [backupName, checkIsValid]
   );
@@ -300,6 +322,7 @@ export const App: FC = () => {
               >
                 Stop
               </Button>
+              <ConfirmDialog onConfirm={handleConfirm} onClose={handleClose} isOpen={isConfirmOpen}/>
               <div className="app__server-state">{serverState}</div>
             </div>
             <List>
@@ -368,6 +391,46 @@ const BackupRow: FC<BackupRowProps> = ({ backup, onRestore }) => {
     </>
   );
 };
+
+type ConfirmDialogProps = {
+  onClose: () => void;
+  onConfirm: () => void;
+  isOpen: boolean;
+}
+
+const ConfirmDialog: FC<ConfirmDialogProps> = ({
+  onClose, onConfirm, isOpen
+}) => {
+  return (
+    <Dialog onClose={onClose} open={isOpen} className="dialog">
+      <div className="dialog__inner">
+        <div className="dialog__confirm">
+          <div className="dialog__text">
+            Are you sure?
+          </div>
+          <div className="dialog__buttons">
+            <Button
+              className="dialog__yes"
+              type="submit"
+              variant="contained"
+              color="primary"
+              onClick={onConfirm}
+            >
+              I'm sure
+            </Button>
+            <Button
+              className="dialog__no"
+              variant="contained"
+              onClick={onClose}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      </div>
+    </Dialog>
+  );
+}
 
 type DialogProps = {
   backup: string;

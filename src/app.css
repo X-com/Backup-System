@@ -76,3 +76,8 @@
 .dialog__no.dialog__no {
     margin-left: 16px;
 }
+
+.dialog__inner {
+    width: 400px;
+    height: 120px;
+}
