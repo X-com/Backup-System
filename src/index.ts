@@ -10,7 +10,7 @@ import fse from "fs-extra-promise";
 import fspx from "fs";
 import minimist from 'minimist';
 import Discord, { TextChannel } from "discord.js";
-import rimraf from 'rimraf';
+import {Repository, Reference, Signature, Checkout, Status} from 'nodegit';
 
 const args = minimist(process.argv.slice(2));
 const fsp = fspx.promises;
@@ -19,7 +19,38 @@ try{
   config = JSON.parse(fs.readFileSync("./config/discord.json", "utf-8"));
 }catch(e){}
 
-const mcFolder = "./mc";
+const mcFolder = '../minecraft';
+let repo:Repository;
+// make signatures of committer and author
+const author = Signature.now('Backup system', 'backup@mc.com');
+(async () => {
+  
+  try{
+    await fs.access(path.join(mcFolder, ".git"));
+  }catch(e){
+    await Repository.init(path.resolve(mcFolder), 0);
+    repo = await Repository.open(path.resolve(mcFolder));
+    // get index of all uncommitted files
+    const index = await repo.refreshIndex();
+    // create a snapshot of repo, get its reference
+    await index.write();
+    const tree = await index.writeTree();
+    // create commit
+    await repo.createCommit(
+      // on currently checkouted branch
+      'HEAD',
+      // authored and committed by backup system
+      author, author,
+      // commit message
+      'init',
+      // reference to snapshot with files
+      tree,
+      // parent commit
+      []
+    );
+  }
+  repo = await Repository.open(path.resolve(mcFolder));
+})();
 
 try{
   fs.accessSync(mcFolder);
@@ -80,6 +111,14 @@ const setState = (newState: State) => {
   state = newState;
   // broadcast new server state to all the clients
   broadcast({ type: "state", value: state.type });
+};
+
+const getDate = () => {
+  return new Date().toISOString()
+      .replace(
+          /(^\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2}).*$/, 
+          (_, d, t) => d + '-' + t.replace(/:/g, '-')
+      );
 };
 
 const getCarpetLink = async () => {
@@ -183,18 +222,15 @@ const getMergedCarpet = async (force: boolean = false) => {
 };
 
 const getBackupList = async () => {
-  // good backup folders
-  const list: string[] = [];
-  // list everything in backup directory, non-recursively
-  for (const candidate of await fs.readdir(backupPath)) {
-    const stats = await fs.stat(path.join(backupPath, candidate));
-    if (!stats.isDirectory) {
-      console.error(`File in backup directory: ${candidate}`);
-      continue;
-    }
-    list.push(candidate);
+  const refs = await repo.getReferenceNames(Reference.TYPE.LISTALL);
+  const result: string[] = [];
+  for (const ref of refs) {
+      const match = ref.match(/^refs\/heads\/(.*)+/);
+      if (match && match[1] !== "master") {
+          result.push(match[1]);
+      }
   }
-  return list;
+  return result.sort().reverse();
 };
 
 const signEula = async () => {
@@ -285,7 +321,11 @@ const startServer = async (forceUpdate: boolean = false) => {
     });
 
     if(config){
-      client.login(config.botToken);
+      try{
+        client.login(config.botToken);
+      }catch(e){
+        console.error(e);
+      }
     }
     // end of discord bridge
     // this promise will resolve when server stops
@@ -361,6 +401,54 @@ const stop = async () => {
 const worldPath = path.resolve(path.join(mcFolder, "world"));
 const backupPath = path.resolve(path.join(mcFolder, "backup"));
 
+const saveFiles = async (backupName: string) => {
+  const name = getDate() + '.' + backupName;
+  let c = 0;
+  // count edited files
+  await Status.foreach(repo, (file: string) => {
+    ++c;
+    return;
+  });
+  // if there are no files to be commited, exit
+  if (c === 0) {
+    return;
+  }
+  // get reference to top existing commit
+  const head = await repo.getHeadCommit();
+  // create new branch that has same commit on top
+  await repo.createBranch(
+      // branch name
+      name,
+      // commit on top of branch
+      head,
+      // do not overwrite if exists
+      false,
+  );
+  // change current branch to newly created branch
+  await fs.writeFile(path.join(path.resolve(mcFolder), '.git', 'HEAD'), `ref: refs/heads/${name}`);
+  // get index of all uncommitted files
+  const index = await repo.refreshIndex();
+  // stage all changed files to be committed
+  await Status.foreach(repo, (file: string) => index.addAll(file));
+  // save index to disk
+  await index.write();
+  // create a snapshot of repo, get its reference
+  const tree = await index.writeTree();
+  // create commit
+  await repo.createCommit(
+      // on currently checkouted branch
+      'HEAD',
+      // authored and committed by backup system
+      author, author,
+      // commit message
+      name,
+      // reference to snapshot with files
+      tree,
+      // parent commit
+      [head]
+  );
+}
+
 const save = async (backupName: string) => {
   // if server is transitioning between states, it's not the best time to update
   if (state.type !== "started" && state.type !== "initial") {
@@ -373,26 +461,10 @@ const save = async (backupName: string) => {
   try {
     // block server state to avoid other requests starting it
     setState({ type: "saving" });
-    // create backup folder if it doesn't exist
-    try {
-      await fs.access(backupPath);
-    } catch (e) {
-      await fs.mkdir(backupPath);
-    }
-    // create backup dir name, replace spaces with underscores for FS compatibility
-    const backupDir = path.join(
-      backupPath,
-      new Date().toISOString().replace(/:/g, "-") +
-        "-" +
-        backupName.replace(/[ ']/g, "_")
-    );
-    // check if backup already exists
-    try {
-      await fs.access(backupDir);
-      return Promise.reject("Backup folder already exists");
-    } catch (e) {}
-    // copy world folder, recursively
-    await fse.copyAsync(worldPath, backupDir);
+
+    // save stuffs
+    await saveFiles(backupName);
+
     // unlock server state
     setState({ type: "initial" });
   } catch (e) {
@@ -405,14 +477,14 @@ const save = async (backupName: string) => {
     value: await getBackupList()
   });
   // now we start the server
-  startServer();
+  //startServer();
 };
 
 type Dimension = "overworld" | "nether" | "end";
 const dimensions: Record<Dimension, string> = {
-  overworld: "./region",
-  nether: "./DIM-1/region",
-  end: "./DIM1/region"
+  overworld: "world/region/",
+  nether: "world/DIM-1/region/",
+  end: "world/DIM1/region/"
 };
 interface Region {
   dimension: Dimension;
@@ -432,34 +504,37 @@ const restore = async (backupName: string, regions: Region[]) => {
   try {
     // block server state to avoid other requests starting it
     setState({ type: "restoring" });
-    // create backup dir name, replace spaces with underscores for FS compatibility
-    const backupDir = path.join(backupPath, backupName);
-    // check if backup folder exists
-    await fs.access(backupDir);
     if (regions.length === 0) {
       await new Promise((resolve) => setTimeout(resolve, 10000));
-      // remove current world folder
-      await new Promise((resolve, reject) => rimraf(worldPath, (err) => err ? reject(err) : resolve()));
-      // copy world folder, recursively
-      await fse.copyAsync(backupDir, worldPath, {errorOnExist:true});
+        // if world files were changed, create
+        // backup of world at the moment of backup restore
+        await saveFiles('rollback');
+        // checkout old branch
+        await repo.checkoutRef(await repo.getBranch(backupName));
     } else {
-      // partial restore: only certain region files
-      const fileNames = regions.map(({ dimension, x, z }) => {
-        return;
-      });
-      // check if these regions really exist
-      for (const { dimension, x, z } of regions) {
-        await fs.access(
-          path.join(worldPath, dimensions[dimension], `r.${x}.${z}.mca`)
-        );
-      }
       // copy regions
+      const regionPaths:string[] = [];
       for (const { dimension, x, z } of regions) {
-        await fse.copyAsync(
-          path.join(backupDir, dimensions[dimension], `r.${x}.${z}.mca`),
-          path.join(worldPath, dimensions[dimension], `r.${x}.${z}.mca`)
-        );
+        regionPaths.push(dimensions[dimension] + `r.${x}.${z}.mca`);
       }
+      // if world files were changed, create
+      // backup of world at the moment of backup restore
+      await saveFiles('rollback');
+      // get top commit in that backup
+      const commit = await repo.getBranchCommit(backupName);
+      // get snapshot from that commit
+      const tree = await commit.getTree();
+      // checkout files
+      await Checkout.tree(
+          repo,
+          tree,
+          {
+              // overwrite files
+              checkoutStrategy: Checkout.STRATEGY.FORCE,
+              // list of files to checkout from backup
+              paths: regionPaths
+          },
+      );
     }
     // unlock server state
     setState({ type: "initial" });
@@ -467,8 +542,13 @@ const restore = async (backupName: string, regions: Region[]) => {
     setState({ type: "initial" });
     console.error(e);
   }
+  // broadcast that we got new backup
+  broadcast({
+    type: "backups",
+    value: await getBackupList()
+  });
   // now we start the server
-  startServer();
+  //startServer();
 };
 
 // pool of client connections
