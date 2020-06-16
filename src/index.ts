@@ -477,7 +477,7 @@ const save = async (backupName: string) => {
     value: await getBackupList()
   });
   // now we start the server
-  //startServer();
+  startServer();
 };
 
 type Dimension = "overworld" | "nether" | "end";
@@ -548,7 +548,7 @@ const restore = async (backupName: string, regions: Region[]) => {
     value: await getBackupList()
   });
   // now we start the server
-  //startServer();
+  startServer();
 };
 
 // pool of client connections
