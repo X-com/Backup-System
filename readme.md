@@ -5,12 +5,13 @@ Server code is the code that is used to run the server.
 
 ## To install
 the server, run these commands with a console in the folder you wish to run Minecraft
-1. If you have git use this `git clone "https://github.com/X-com/Backup-System.git" server`
-   If you don't have git download and extract this file. "https://github.com/X-com/Backup-System/archive/server.zip"
+1. If you have git use this `git clone "https://github.com/X-com/Backup-System.git" server`.
+   If you don't have git installed, please install it from [this link](https://git-scm.com/downloads).
 2. `npm install`
 3. `npm install -g ts-node`
 4. Populate the user.jason file with password and login.
 5. There is an optional discord bridge, a bot that posts messages to and from ingame chat into a discord channel of choice. To do so add in the json file information about server and channel IDs also add bot token with a. If not, remove the discord.json file.
+6. Run the server once, this creates a minecraft folder outside the server folder but in the same folder as the server folder. Insert the world in here and start minecraft as per run instructions below.
 
 ## To run
 the server type:
