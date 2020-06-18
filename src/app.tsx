@@ -135,7 +135,7 @@ export const App: FC = () => {
   },[]);
 
   const checkIsValid = useCallback((backupName: string) => {
-    const isValid = backupName.match(/^[a-zA-Z0-9 '-]+$/);
+    const isValid = backupName.match(/^[a-zA-Z0-9_.-]+$/);
     setBackupNameError(!isValid);
     return isValid;
   }, []);
