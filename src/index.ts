@@ -402,6 +402,7 @@ const saveFiles = async (backupName: string) => {
   const result = await call("git status --porcelain");
   console.log("Edited files since last save: " + result.split("\n").length);
   if(result.split("\n").length < 2) return;
+  await new Promise((resolve) => setTimeout(resolve, 10000));
   await call("git checkout -b " + name);
   await call("git add -A");
   await call("git commit --allow-empty -m " + name);
@@ -463,7 +464,6 @@ const restore = async (backupName: string, regions: Region[]) => {
     // block server state to avoid other requests starting it
     setState({ type: "restoring" });
     if (regions.length === 0) {
-      await new Promise((resolve) => setTimeout(resolve, 10000));
         // if world files were changed, create
         // backup of world at the moment of backup restore
         await saveFiles('rollback');
