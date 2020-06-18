@@ -117,6 +117,9 @@ export const App: FC = () => {
           })
         );
       };
+      conn.onclose = () => {
+        setAuthorized(false);
+      }
     },
     [login, password, server, ip], 
   );
