@@ -3,6 +3,8 @@ This code was written by a russian hacker. Use at own peril.
 
 Server code is the code that is used to run the server.
 
+It wasn't Xcom who wrote this junk. Don't ask me how it works.
+
 ## To install
 the server, run these commands with a console in the folder you wish to run Minecraft
 1. If you have git use this `git clone "https://github.com/X-com/Backup-System.git" server`.
