@@ -36,7 +36,6 @@
     "mz": "2.7.0",
     "ncp": "2.0.0",
     "node-fetch": "2.6.0",
-    "nodegit": "0.26.5",
     "request": "2.88.2",
     "request-promise-native": "1.0.8",
     "rimraf": "3.0.2",

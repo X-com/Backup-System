@@ -7,49 +7,48 @@ import path, { join } from "path";
 import { exec } from "child_process";
 import WebSocket from "ws";
 import fse from "fs-extra-promise";
-import fspx from "fs";
 import minimist from 'minimist';
 import Discord, { TextChannel } from "discord.js";
-import {Repository, Reference, Signature, Checkout, Status} from 'nodegit';
 
 const args = minimist(process.argv.slice(2));
-const fsp = fspx.promises;
 let config:any;
 try{
   config = JSON.parse(fs.readFileSync("./config/discord.json", "utf-8"));
 }catch(e){}
 
 const mcFolder = '../minecraft';
-let repo:Repository;
-// make signatures of committer and author
-const author = Signature.now('Backup system', 'backup@mc.com');
-(async () => {
+
+const call = (command:string) => {
+  return new Promise<string>((resolve, reject) => {
+      const child = exec(command, { cwd: mcFolder }, (error) => {
+          if(error){
+              reject(error);
+          }else{
+              resolve(output);
+          }
+      });
+      const { stdout, stderr, stdin } = child;
+      // if stdio of that process didn't open, something went wrong
+      if (!stdin || !stdout || !stderr) {
+          reject(new Error("Cannot spawn child process"));
+          return;
+      }
+      stdout.pipe(process.stdout);
   
+      let output = "";
+  
+      stdout.on('data', (message)=>{
+          output += message;
+      });
+  });
+}
+
+(async () => {
   try{
     await fs.access(path.join(mcFolder, ".git"));
   }catch(e){
-    await Repository.init(path.resolve(mcFolder), 0);
-    repo = await Repository.open(path.resolve(mcFolder));
-    // get index of all uncommitted files
-    const index = await repo.refreshIndex();
-    // create a snapshot of repo, get its reference
-    await index.write();
-    const tree = await index.writeTree();
-    // create commit
-    await repo.createCommit(
-      // on currently checkouted branch
-      'HEAD',
-      // authored and committed by backup system
-      author, author,
-      // commit message
-      'init',
-      // reference to snapshot with files
-      tree,
-      // parent commit
-      []
-    );
+    await call("git init");
   }
-  repo = await Repository.open(path.resolve(mcFolder));
 })();
 
 try{
@@ -222,15 +221,12 @@ const getMergedCarpet = async (force: boolean = false) => {
 };
 
 const getBackupList = async () => {
-  const refs = await repo.getReferenceNames(Reference.TYPE.LISTALL);
-  const result: string[] = [];
-  for (const ref of refs) {
-      const match = ref.match(/^refs\/heads\/(.*)+/);
-      if (match && match[1] !== "master") {
-          result.push(match[1]);
-      }
-  }
-  return result.sort().reverse();
+  const result = await call("git branch --list");
+  return result.split('\n').map((line)=>{
+      return line.substr(2);
+  }).filter((line)=>{
+      return line && line !== 'master';
+  }).sort().reverse();
 };
 
 const signEula = async () => {
@@ -403,50 +399,12 @@ const backupPath = path.resolve(path.join(mcFolder, "backup"));
 
 const saveFiles = async (backupName: string) => {
   const name = getDate() + '.' + backupName;
-  let c = 0;
-  // count edited files
-  await Status.foreach(repo, (file: string) => {
-    ++c;
-    return;
-  });
-  // if there are no files to be commited, exit
-  if (c === 0) {
-    return;
-  }
-  // get reference to top existing commit
-  const head = await repo.getHeadCommit();
-  // create new branch that has same commit on top
-  await repo.createBranch(
-      // branch name
-      name,
-      // commit on top of branch
-      head,
-      // do not overwrite if exists
-      false,
-  );
-  // change current branch to newly created branch
-  await fs.writeFile(path.join(path.resolve(mcFolder), '.git', 'HEAD'), `ref: refs/heads/${name}`);
-  // get index of all uncommitted files
-  const index = await repo.refreshIndex();
-  // stage all changed files to be committed
-  await Status.foreach(repo, (file: string) => index.addAll(file));
-  // save index to disk
-  await index.write();
-  // create a snapshot of repo, get its reference
-  const tree = await index.writeTree();
-  // create commit
-  await repo.createCommit(
-      // on currently checkouted branch
-      'HEAD',
-      // authored and committed by backup system
-      author, author,
-      // commit message
-      name,
-      // reference to snapshot with files
-      tree,
-      // parent commit
-      [head]
-  );
+  const result = await call("git status --porcelain");
+  console.log("Edited files since last save: " + result.split("\n").length);
+  if(result.split("\n").length < 2) return;
+  await call("git checkout -b " + name);
+  await call("git add -A");
+  await call("git commit --allow-empty -m " + name);
 }
 
 const save = async (backupName: string) => {
@@ -510,7 +468,7 @@ const restore = async (backupName: string, regions: Region[]) => {
         // backup of world at the moment of backup restore
         await saveFiles('rollback');
         // checkout old branch
-        await repo.checkoutRef(await repo.getBranch(backupName));
+        await call("git checkout " + backupName);
     } else {
       // copy regions
       const regionPaths:string[] = [];
@@ -521,20 +479,7 @@ const restore = async (backupName: string, regions: Region[]) => {
       // backup of world at the moment of backup restore
       await saveFiles('rollback');
       // get top commit in that backup
-      const commit = await repo.getBranchCommit(backupName);
-      // get snapshot from that commit
-      const tree = await commit.getTree();
-      // checkout files
-      await Checkout.tree(
-          repo,
-          tree,
-          {
-              // overwrite files
-              checkoutStrategy: Checkout.STRATEGY.FORCE,
-              // list of files to checkout from backup
-              paths: regionPaths
-          },
-      );
+      await call("git checkout " + backupName + " " + regionPaths.join(" "));
     }
     // unlock server state
     setState({ type: "initial" });
@@ -562,7 +507,7 @@ const broadcast = (message: any) => {
 };
 
 // regex for valid backup names
-const nameRegex = /^[a-zA-Z0-9 .-]+$/;
+const nameRegex = /^[a-zA-Z0-9_.-]+$/;
 // start websocket server
 const port = args.p || 3000;
 const wss = new WebSocket.Server({ port, host:"0.0.0.0"});
